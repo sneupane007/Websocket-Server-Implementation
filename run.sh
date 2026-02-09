@@ -1,5 +1,4 @@
-g++ main.cpp websocket_util.cpp -o server \
+g++ main.cpp websocket_util.cpp server_util.cpp -o server \
 -I/opt/homebrew/opt/openssl/include \
 -L/opt/homebrew/opt/openssl/lib \
--lcrypto
-
+-lcrypto -pthread 

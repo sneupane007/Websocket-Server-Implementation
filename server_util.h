@@ -5,5 +5,6 @@
 
 
 std::string read_file(const std::string& filename);
+void handle_client(int client_socket);  
 
 #endif

@@ -4,7 +4,7 @@
 #include <unistd.h> // for write()
 #include "websocket_util.h"
 #include "server_util.h"
-
+#include <thread>
 
 
 int main() {
@@ -47,44 +47,19 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    std::cout << "Server listening on port 8080..." << std::endl;
+    std::cout << "Server listening on port 8082..." << std::endl;
 
     while (true) {
         // 6. Accept a Connection
         // This blocks here until a client (like a browser) connects.
-        if ((new_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen)) < 0) {
+        int new_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen);
+        if (new_socket < 0) {
             perror("accept");
             continue;
         }
-
-         // 7. Read Data
-        // We move bytes from the kernel buffer into our 'buffer' array.
-        ssize_t valread = read(new_socket, buffer, 1024);
-        if (valread > 0) {
-            std::cout << "--- Received Request ---" << std::endl;
-            std::cout << buffer << std::endl;
-            std::cout << "------------------------" << std::endl;
-
-            // 8. Send a basic HTTP response (so the browser doesn't hang)
-           
-        }
-        if(is_websocket(buffer)){
-            perform_handshake( new_socket, parse_headers(buffer)["Sec-WebSocket-Key"]);
-            // After handshake, enter WebSocket mode (this is a simplified version)
-
-            enter_websocket_mode(new_socket);
-        }
-        else{
-            const char* hello = "HTTP/1.1 200 OK\nContent-Type: text/plain\nContent-Length: 12\n\nHello World!";
-            write(new_socket, hello, strlen(hello));
-            close(new_socket);
-        }
+        std::cout << "New connection accepted! Spawning thread..." << std::endl;
+        std::thread(handle_client, new_socket).detach();
         
-        // 9. Close the client socket
-        close(new_socket);
-        
-        // Clear buffer for the next request
-        memset(buffer, 0, 1024);
     }
 
     // 10. Close the master listener (not reached in this loop)

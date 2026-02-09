@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ WebSocket Terminal</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="chat-container">
+        <header>
+            <div class="status-indicator" id="statusCircle"></div>
+            <h1>C++ Server Console</h1>
+        </header>
+
+        <div id="chat-box" class="chat-box"></div>
+
+        <div class="input-area">
+            <input type="text" id="msgInput" placeholder="Press Enter to Connect..." autocomplete="off">
+            <button id="actionBtn" onclick="handleAction()">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let ws;
+        const chatBox = document.getElementById("chat-box");
+        const msgInput = document.getElementById("msgInput");
+        const statusCircle = document.getElementById("statusCircle");
+
+        // Decides whether to Connect or Send based on state
+        function handleAction() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                initiateWebSocket();
+            } else {
+                sendMessage();
+            }
+        }
+
+        function initiateWebSocket() {
+            ws = new WebSocket("ws://localhost:8082");
+
+            ws.onopen = () => {
+                statusCircle.style.background = "#00ff88"; // Green
+                msgInput.placeholder = "Send a message to the kernel...";
+                appendMessage("System", "Protocol switched to WebSocket. Connection stable.", "system-msg");
+            };
+
+            ws.onmessage = (event) => {
+                appendMessage("Server", event.data, "server-msg");
+            };
+
+            ws.onclose = () => {
+                statusCircle.style.background = "#ff4444"; // Red
+                appendMessage("System", "Connection terminated.", "system-msg");
+            };
+        }
+
+        function sendMessage() {
+            const text = msgInput.value.trim();
+            if (text && ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(text);
+                appendMessage("You", text, "user-msg");
+                msgInput.value = "";
+            }
+        }
+
+        function appendMessage(sender, text, className) {
+            const msgDiv = document.createElement("div");
+            msgDiv.className = `message-wrapper ${className}`;
+            msgDiv.innerHTML = `
+                <div class="message-content">
+                    <small>${sender}</small>
+                    <p>${text}</p>
+                </div>
+            `;
+            chatBox.appendChild(msgDiv);
+            chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
+        }
+
+        msgInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") handleAction();
+        });
+    </script>
+</body>
+</html>
