@@ -1,6 +1,7 @@
-# Websocket-Server-Implementation
-Minimal Viable Prototype
+# NeoChat server
+a lightweight, C++ powered WebSocket server designed to act as a bridge between a personal website and its owner. It provides a persistent, one-on-one communication channel for visitors to reach out to an admin in real-time.
 Features include:
-
-- Socket implementation using system calls such as accept(), read(), write(), close()
-- Upgrade the server to have secure websocket capabilities
+- low level server implementation
+- AWS RDS Integration:
+- Thread safe Database Manager
+- basic front-end window
