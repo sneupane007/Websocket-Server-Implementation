@@ -1,32 +1,20 @@
-#ifndef HTTP_ROUTER_H
-#define HTTP_ROUTER_H
+#pragma once
 
 #include <string>
 #include <vector>
-#include <memory>
 #include <unordered_map>
 
 #include "websocket_handler.h"
 #include "http_handler.h"
+#include "connection.h"
 
 // ─────────────────────────────────────────────
-// HttpRouter — the front door
+// HttpRouter — parses pre-buffered HTTP headers and dispatches
 //
-//   Reads raw bytes from a socket, parses the request,
-//   and dispatches to the appropriate registered handler.
-//
-//   Features register themselves at startup via
-//   register_ws_handler() and register_http_handler().
+//   route_buffered() is called by the Reactor once "\r\n\r\n"
+//   has been seen in the read buffer.  No read() call inside.
 // ─────────────────────────────────────────────
 class HttpRouter {
-private:
-    std::vector<WebSocketHandler*>  ws_handlers;
-    std::vector<HttpHandler*>       http_handlers;
-
-    // Internal helpers for parsing raw HTTP bytes
-    std::unordered_map<std::string, std::string> parse_headers(const char* buffer);
-    bool is_websocket_upgrade(const std::unordered_map<std::string, std::string>& headers);
-
 public:
     HttpRouter() = default;
 
@@ -34,8 +22,18 @@ public:
     void register_ws_handler(WebSocketHandler* handler);
     void register_http_handler(HttpHandler* handler);
 
-    // The single entry point. Called by main() for every new connection.
-    void route(int client_socket);
-};
+    // Called by Reactor::dispatch_http() with already-buffered header bytes.
+    // Returns true  → WebSocket upgrade; on_open() called, connection persists.
+    // Returns false → HTTP request handled; caller should close the connection.
+    bool route_buffered(ConnectionState& conn, const std::string& headers_raw);
 
-#endif
+private:
+    std::vector<WebSocketHandler*> ws_handlers;
+    std::vector<HttpHandler*>      http_handlers;
+
+    std::unordered_map<std::string, std::string>
+        parse_headers(const std::string& raw);
+
+    bool is_websocket_upgrade(
+        const std::unordered_map<std::string, std::string>& headers);
+};

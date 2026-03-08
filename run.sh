@@ -1,6 +1,10 @@
 #!/bin/bash
 g++ -std=c++17 \
-    main.cpp server/http_router.cpp server/chat_api_handler.cpp server/chat_server.cpp \
+    main.cpp \
+    server/http_router.cpp \
+    server/chat_api_handler.cpp \
+    server/chat_server.cpp \
+    server/reactor.cpp \
     -o server_run \
     -I/opt/homebrew/include \
     -I/opt/homebrew/opt/openssl/include \
@@ -10,4 +14,3 @@ g++ -std=c++17 \
     -L/usr/local/lib \
     -L/opt/homebrew/opt/libpq/lib \
     -lcrypto -pthread -lpqxx -lpq
-

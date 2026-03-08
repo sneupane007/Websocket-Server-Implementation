@@ -1,30 +1,36 @@
 #pragma once
+
 #include <string>
+#include "connection.h"
 
 // ─────────────────────────────────────────────
-// WebSocketHandler — interface for WebSocket features
+// WebSocketHandler — event-driven interface for WebSocket features
 //
-//   Any feature that needs a persistent WebSocket connection
-//   implements this.  The HttpRouter detects WS upgrades and
-//   dispatches to the handler whose path_prefix() matches.
+//   The Reactor calls on_open/on_message/on_close as events arrive.
+//   No blocking — handlers must return quickly.
 // ─────────────────────────────────────────────
 class WebSocketHandler {
 public:
     virtual ~WebSocketHandler() = default;
 
-    // The URL path this handler owns, e.g. "/chat", "/ws/presence"
+    // URL path this handler owns, e.g. "/chat"
     virtual std::string path_prefix() const = 0;
 
-    // Does this handler match the given request path?
-    // Default: prefix match.  Override for complex routing (e.g. multiple paths).
+    // Does this handler own the given request path?
     virtual bool matches(const std::string& path) const {
         return path.find(path_prefix()) == 0;
     }
 
-    // Called by the router after the WS upgrade is detected.
-    // The handler is responsible for the handshake and message loop.
-    // This call blocks for the lifetime of the connection.
-    virtual void accept_connection(int socket,
-            const std::string& path, const std::string& query,
-            const std::string& ws_key) = 0;
+    // Called once after the WebSocket upgrade is detected.
+    // conn.ws_key holds Sec-WebSocket-Key; handler must send the 101 response.
+    virtual void on_open(ConnectionState& conn,
+                         const std::string& path,
+                         const std::string& query) = 0;
+
+    // Called for each fully-decoded WebSocket frame payload.
+    virtual void on_message(ConnectionState& conn,
+                            const std::string& payload) = 0;
+
+    // Called when the connection closes (client disconnect or Close frame).
+    virtual void on_close(ConnectionState& conn) = 0;
 };
