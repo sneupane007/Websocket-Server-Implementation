@@ -12,18 +12,19 @@
 #include "server/chat_api_handler.h"
 #include "server/static_handler.h"
 #include "server/http_router.h"
+#include "server/thread_pool.h"
 
 // ─────────────────────────────────────────────
 // Simple .env file loader
 // ─────────────────────────────────────────────
-static std::string load_env(const std::string& key) {
+static std::string load_env(const std::string& key, const std::string& default_val = "") {
     std::ifstream file(".env");
     std::string line;
     while (std::getline(file, line)) {
         if (line.find(key + "=") == 0)
             return line.substr(key.length() + 1);
     }
-    return "";
+    return default_val;
 }
 
 int main() {
@@ -34,6 +35,15 @@ int main() {
     std::string db_user = load_env("DB_USER");
     std::string db_pass = load_env("DB_PASS");
 
+    size_t thread_count = std::thread::hardware_concurrency() * 2;
+    std::string tp_env = load_env("THREAD_POOL_SIZE");
+    if (!tp_env.empty()) thread_count = std::stoul(tp_env);
+    if (thread_count == 0) thread_count = 4;
+
+    size_t db_pool_size = 5;
+    std::string dp_env = load_env("DB_POOL_SIZE");
+    if (!dp_env.empty()) db_pool_size = std::stoul(dp_env);
+
     std::string conn_str = "host=" + db_host +
         " port=" + db_port +
         " dbname=" + db_name +
@@ -42,7 +52,7 @@ int main() {
 
     // ── 2. Create the shared managers ───────────
     ClientManager   client_manager;
-    DatabaseManager db_manager(conn_str);
+    DatabaseManager db_manager(conn_str, db_pool_size);
 
     // ── 3. Create feature handlers ──────────────
     ChatServer      chat_handler(client_manager, db_manager);
@@ -87,18 +97,19 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    std::cout << "Server listening on port 8082..." << std::endl;
+    std::cout << "Server listening on port 8082 (threads=" << thread_count
+              << ", db_pool=" << db_pool_size << ")..." << std::endl;
 
-    // ── 6. Accept loop ──────────────────────────
+    // ── 6. Thread pool ──────────────────────────
+    ThreadPool pool(thread_count, [&router](int sock) { router.route(sock); });
+
+    // ── 7. Accept loop ──────────────────────────
     while (true) {
         int new_socket = accept(server_fd, (struct sockaddr*)&address,
                                 (socklen_t*)&addrlen);
         if (new_socket < 0) { perror("accept"); continue; }
 
-        std::cout << "New connection accepted." << std::endl;
-        std::thread([&router, new_socket]() {
-            router.route(new_socket);
-        }).detach();
+        pool.submit(new_socket);
     }
 
     close(server_fd);
