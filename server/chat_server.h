@@ -14,8 +14,7 @@ private:
     DatabaseManager& db;
     Reactor*         reactor = nullptr;
 
-    // Low-level WebSocket helpers
-    static std::string base64_encode(const unsigned char* data, size_t len);
+    // Low-level WebSocket helper (delegates to ws::handshake)
     void perform_handshake(int fd, const std::string& client_key);
 
 public:

@@ -10,6 +10,7 @@
 #include "server/chat_server.h"
 #include "server/chat_api_handler.h"
 #include "server/static_handler.h"
+#include "server/presence_handler.h"
 #include "server/reactor.h"
 
 // ─────────────────────────────────────────────
@@ -48,9 +49,10 @@ int main() {
     DatabaseManager db_manager(conn_str, db_pool_size);
 
     // ── 3. Create feature handlers ──────────────
-    ChatServer     chat_handler(client_manager, db_manager);
-    ChatApiHandler api_handler(db_manager, client_manager);
-    StaticHandler  static_handler("../portfolio copy/dist");
+    ChatServer      chat_handler(client_manager, db_manager);
+    ChatApiHandler  api_handler(db_manager, client_manager);
+    StaticHandler   static_handler("../portfolio copy/dist");
+    PresenceHandler presence_handler;
 
     // ── 4. Socket setup ─────────────────────────
     int server_fd;
@@ -83,11 +85,13 @@ int main() {
     // ── 5. Reactor — replaces ThreadPool + accept loop ──────────────
     Reactor reactor(server_fd, client_manager, db_manager);
 
-    // Give ChatServer a back-reference for queue_write / post_result
+    // Give handlers a back-reference for queue_write / post_result
     chat_handler.set_reactor(&reactor);
+    presence_handler.set_reactor(&reactor);
 
     // Register handlers (WS first, then HTTP in match-priority order)
-    reactor.register_ws_handler(&chat_handler);
+    reactor.register_ws_handler(&presence_handler); // /ws/presence
+    reactor.register_ws_handler(&chat_handler);     // /chat, /admin/chat
     reactor.register_http_handler(&api_handler);    // /api/*
     reactor.register_http_handler(&static_handler); // / catch-all (last)
 

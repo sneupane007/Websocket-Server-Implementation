@@ -4,6 +4,7 @@ g++ -std=c++17 \
     server/http_router.cpp \
     server/chat_api_handler.cpp \
     server/chat_server.cpp \
+    server/presence_handler.cpp \
     server/reactor.cpp \
     -o server_run \
     -I/opt/homebrew/include \

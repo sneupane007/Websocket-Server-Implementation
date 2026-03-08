@@ -7,6 +7,9 @@
 </head>
 
 <body>
+    <div id="presence-count" style="padding:8px 16px;background:#1a1a2e;color:#e0e0e0;font-size:0.9em;">
+        Active visitors: <span id="count">&#8211;</span>
+    </div>
     <div class="container">
         <nav class="user-sidebar">
             <h3>Recent Visitors</h3>
@@ -32,7 +35,14 @@
         // Track online status locally
         let visitorStatus = {}; // { "Sujal": true, "OldUser": false }
 
-        // ── WebSocket ─────────────────────────────
+        // ── Presence WebSocket ────────────────────
+        const presenceWs = new WebSocket('ws://' + window.location.host + '/ws/presence');
+        presenceWs.onmessage = (e) => {
+            const d = JSON.parse(e.data);
+            if (d.type === 'presence') document.getElementById('count').textContent = d.count;
+        };
+
+        // ── Chat WebSocket ────────────────────────
         const socket = new WebSocket('ws://' + window.location.host + '/admin/chat');
 
         socket.onopen = () => {
