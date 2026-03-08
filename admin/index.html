@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Dev Portfolio - Admin Chat</title>
+    <link rel="stylesheet" href="/admin/styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <nav class="user-sidebar">
+            <h3>Recent Visitors</h3>
+            <ul id="user-list"></ul>
+        </nav>
+        <section class="chat-window">
+            <header id="chat-target">Select a user</header>
+            <div id="messages"></div>
+            <div class="input-area">
+                <input type="text" id="msg-input" placeholder="Type response...">
+                <button id="send-btn">Send</button>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const userList = document.getElementById('user-list');
+        const messageBox = document.getElementById('messages');
+        const chatTarget = document.getElementById('chat-target');
+        const msgInput = document.getElementById('msg-input');
+        let selectedUser = null;
+
+        // Track online status locally
+        let visitorStatus = {}; // { "Sujal": true, "OldUser": false }
+
+        // ── WebSocket ─────────────────────────────
+        const socket = new WebSocket('ws://' + window.location.host + '/admin/chat');
+
+        socket.onopen = () => {
+            console.log('Admin WebSocket connected.');
+        };
+
+        socket.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+
+                // Initial snapshot of all visitors (sent when admin first connects)
+                if (data.type === 'snapshot') {
+                    data.visitors.forEach(v => {
+                        visitorStatus[v.name] = v.online;
+                    });
+                    renderSidebar();
+                    return;
+                }
+
+                // Real-time connect / disconnect events
+                if (data.type === 'connect') {
+                    visitorStatus[data.user] = true;
+                    renderSidebar();
+                    return;
+                }
+                if (data.type === 'disconnect') {
+                    visitorStatus[data.user] = false;
+                    renderSidebar();
+                    return;
+                }
+
+                // Error from server
+                if (data.error) {
+                    appendMsg('System', data.error, 'system');
+                    return;
+                }
+
+                // Chat message from a visitor
+                const visitorId = data.from;
+                const text = data.message;
+
+                // Make sure this visitor shows in sidebar as online
+                visitorStatus[visitorId] = true;
+                renderSidebar();
+
+                // If we're viewing this visitor's chat, show the message
+                if (visitorId === selectedUser) {
+                    appendMsg(visitorId, text, 'visitor');
+                }
+            } catch (e) {
+                console.error('Failed to parse message:', e);
+            }
+        };
+
+        socket.onclose = () => {
+            console.log('Admin WebSocket disconnected.');
+        };
+
+        // ── Render Sidebar ────────────────────────
+        function renderSidebar() {
+            // Sort: online users first, then offline
+            const entries = Object.entries(visitorStatus)
+                .sort(([, a], [, b]) => (b ? 1 : 0) - (a ? 1 : 0));
+
+            userList.innerHTML = entries.map(([name, online]) => {
+                const isActive = name === selectedUser ? 'active' : '';
+                const statusDot = online
+                    ? '<span class="status-dot online"></span>'
+                    : '<span class="status-dot offline"></span>';
+                return `<li data-id="${name}" class="${isActive}" onclick="selectUser('${name}')">
+                    ${statusDot} ${name}
+                </li>`;
+            }).join('');
+        }
+
+        // ── Fetch History for a user ──────────────
+        async function selectUser(username) {
+            selectedUser = username;
+            chatTarget.innerText = `Chatting with: ${username}`;
+            renderSidebar();
+
+            try {
+                const res = await fetch(`/api/history?visitor=${username}`);
+                const history = await res.json();
+
+                messageBox.innerHTML = '';
+                history.forEach(m => {
+                    const sender = m.sender || m.username;
+                    const text = m.message;
+                    const role = sender === 'admin' ? 'admin' : 'visitor';
+                    appendMsg(sender, text, role);
+                });
+            } catch (e) {
+                console.error('Failed to load history:', e);
+                messageBox.innerHTML = '<div class="msg system">Failed to load history</div>';
+            }
+        }
+
+        // ── Send Message ──────────────────────────
+        function sendMessage() {
+            if (!selectedUser || !msgInput.value.trim()) return;
+
+            const payload = {
+                receiver: selectedUser,
+                message: msgInput.value.trim()
+            };
+
+            socket.send(JSON.stringify(payload));
+            appendMsg('admin', payload.message, 'admin');
+            msgInput.value = '';
+        }
+
+        document.getElementById('send-btn').onclick = sendMessage;
+        msgInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        // ── Helper ────────────────────────────────
+        function appendMsg(sender, text, role) {
+            const div = document.createElement('div');
+            div.className = `msg ${role}`;
+            div.innerHTML = `<b>${sender}:</b> ${text}`;
+            messageBox.appendChild(div);
+            messageBox.scrollTop = messageBox.scrollHeight;
+        }
+    </script>
+</body>
+
+</html>

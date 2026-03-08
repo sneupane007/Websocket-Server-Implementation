@@ -1,8 +1,13 @@
+#pragma once
 #include <pqxx/pqxx>
 #include <mutex>
 #include <string>
 #include <iostream>
 #include <memory>
+#include <vector>
+#include <nlohmann/json.hpp>
+
+using namespace nlohmann;
 
 class DatabaseManager {
 private:
@@ -24,14 +29,16 @@ public:
 
     void create_tables() {
         std::lock_guard<std::mutex> lock(db_mutex);
-        pqxx::work W(*conn);
-        try { W.exec(
+        if (!conn) return;
+        try {
+            pqxx::work W(*conn);
+            W.exec(
                 "CREATE TABLE IF NOT EXISTS chat_history ("
                 "id SERIAL PRIMARY KEY,"
-                "reciever_id TEXT NOT NULL,"
+                "receiver_id TEXT NOT NULL,"
                 "username TEXT,"
                 "message TEXT,"
-                "timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
+                "sent_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP);"
             );
             W.commit();
         } catch (const std::exception &e) {
@@ -39,9 +46,9 @@ public:
         }
     }
 
-   void insert_message(const std::string& sender, const std::string& receiver, const std::string& message) {
-        // Use lock_guard for thread safety when accessing the database connection
-        std::lock_guard<std::mutex> lock(db_mutex); 
+    void insert_message(const std::string& sender, const std::string& receiver, const std::string& message) {
+        std::lock_guard<std::mutex> lock(db_mutex);
+        if (!conn) return;
         
         try {
             pqxx::work W(*conn);
@@ -55,5 +62,51 @@ public:
         } catch (const std::exception &e) {
             std::cerr << "Database error during insert: " << e.what() << std::endl;
         }
+    }
+    
+    // Returns JSON array of message objects
+    json fetch_chat_history(const std::string& visitor_id) {
+        std::lock_guard<std::mutex> lock(db_mutex);
+        json j = json::array();
+        if (!conn) return j;
+
+        try {
+            pqxx::work W(*conn);
+            // Use exec_params for safety
+            std::string query = "SELECT username, receiver_id, message, sent_at FROM chat_history "
+                                "WHERE username = $1 OR receiver_id = $1 "
+                                "ORDER BY sent_at ASC;";
+            
+            pqxx::result R = W.exec(query, pqxx::params{visitor_id});
+            
+            for (auto row : R) {
+                json msg;
+                msg["sender"] = row["username"].c_str();
+                msg["receiver"] = row["receiver_id"].c_str();
+                msg["message"] = row["message"].c_str();
+                msg["timestamp"] = row["sent_at"].c_str();
+                j.push_back(msg);
+            }
+        } catch (const std::exception &e) {
+            std::cerr << "Error fetching history: " << e.what() << std::endl;
+        }
+        return j;
+    }
+
+    std::vector<std::string> fetch_unique_visitors() {
+        std::lock_guard<std::mutex> lock(db_mutex);
+        std::vector<std::string> visitors;
+        if (!conn) return visitors;
+
+        try {
+            pqxx::work W(*conn);
+            pqxx::result R = W.exec("SELECT DISTINCT username FROM chat_history WHERE username != 'admin';");
+            for (auto row : R) {
+                visitors.push_back(row[0].c_str());
+            }
+        } catch (const std::exception &e) {
+            std::cerr << "Error fetching visitors: " << e.what() << std::endl;
+        }
+        return visitors;
     }
 };

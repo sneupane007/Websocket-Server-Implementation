@@ -1,0 +1,120 @@
+body {
+    font-family: sans-serif;
+    margin: 0;
+    background: #121212;
+    color: #eee;
+}
+
+.container {
+    display: flex;
+    height: 100vh;
+}
+
+.user-sidebar {
+    width: 250px;
+    background: #1e1e1e;
+    border-right: 1px solid #333;
+    padding: 15px;
+}
+
+.user-sidebar li {
+    padding: 10px;
+    cursor: pointer;
+    border-bottom: 1px solid #222;
+    list-style: none;
+    transition: background 0.2s;
+}
+
+.user-sidebar li:hover {
+    background: #333;
+}
+
+.user-sidebar li.active {
+    background: #0056b3;
+}
+
+.user-sidebar li.has-new {
+    border-left: 3px solid #00ff88;
+}
+
+/* Online/offline status dots */
+.status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+.status-dot.online {
+    background: #00ff88;
+    box-shadow: 0 0 6px #00ff88;
+}
+
+.status-dot.offline {
+    background: #555;
+}
+
+.chat-window {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+header {
+    padding: 20px;
+    background: #222;
+    border-bottom: 1px solid #333;
+    font-weight: bold;
+}
+
+#messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.msg {
+    padding: 10px;
+    border-radius: 8px;
+    max-width: 70%;
+}
+
+.visitor {
+    background: #333;
+    align-self: flex-start;
+}
+
+.admin {
+    background: #0056b3;
+    align-self: flex-end;
+}
+
+.input-area {
+    padding: 20px;
+    background: #1e1e1e;
+    display: flex;
+    gap: 10px;
+}
+
+input {
+    flex: 1;
+    padding: 10px;
+    background: #333;
+    border: none;
+    color: white;
+    border-radius: 4px;
+}
+
+button {
+    padding: 10px 20px;
+    background: #007bff;
+    border: none;
+    color: white;
+    cursor: pointer;
+    border-radius: 4px;
+}
